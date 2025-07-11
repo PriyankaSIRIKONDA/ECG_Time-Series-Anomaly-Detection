@@ -91,7 +91,7 @@ TSA/
 - **Labels only for evaluation** - Performance assessment and error analysis
 - **Three different approaches** - Comprehensive anomaly detection
 
-### Model Error Analysis (40% of grade)
+### Model Error Analysis
 - **False Positive Analysis**: Why normal data classified as anomalies
 - **False Negative Analysis**: Why anomalies missed by models
 - **Visual comparison**: Green (correct anomalies) vs Red (predicted anomalies)
