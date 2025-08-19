@@ -1,11 +1,4 @@
 # ECG5000 Anomaly Detection Project
-
-## Group Members
-1. Dursun cihan Karadoğan
-2. Minh chau Nguyen
-3. Priyanka Sirikonda
-
-
 ## Dataset Information
 
 ### Dataset Link
