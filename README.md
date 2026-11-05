@@ -1,132 +1,84 @@
-# ECG5000 Anomaly Detection Project
-## Dataset Information
+# ECG Time-Series Anomaly Detection (ECG5000)
 
-### Dataset Link
-[ECG5000 Dataset](https://www.timeseriesclassification.com/description.php?Dataset=ECG5000)
+Three **unsupervised** anomaly detectors for heartbeat recordings, compared on the same data:
+a statistical rule (median absolute deviation), a vector autoregression (VAR) reconstruction model,
+and Fourier spectral features. Labels are never used for training, only to evaluate and to analyse
+the errors afterwards.
 
-### Use Case Description
-**ECG Signal Monitoring for Cardiac Anomaly Detection**
+## Results
 
-This project focuses on detecting cardiac anomalies in electrocardiogram (ECG) signals. ECG monitoring is critical in healthcare for:
-- Early detection of cardiac arrhythmias
-- Monitoring patients in intensive care units
-- Preventive healthcare screening
-- Remote patient monitoring systems
+All three models scored on the same 1,999 recordings (219 anomalies):
 
-### Dataset Description
-This project uses a **balanced subset of 2,000 ECG time series recordings** (not the full 5,000) from the ECG5000 dataset, each with 140 time steps representing electrical activity of the heart over time.
+| Model | Precision | Recall | F1 | AUC* | TP | FP | FN |
+|---|---|---|---|---|---|---|---|
+| **Median Absolute Deviation (rule)** | **0.44** | 0.45 | **0.44** | 0.69 | 99 | 128 | 120 |
+| VAR reconstruction error | 0.37 | 0.33 | 0.35 | 0.63 | 73 | 127 | 146 |
+| Fourier spectral features | 0.38 | **0.52** | 0.44 | **0.71** | 114 | 185 | 105 |
 
-**What the data represents:**
-- Each sample is a 140-point time series of ECG signal measurements
-- The signal represents the electrical activity of the heart muscle
-- Time steps correspond to voltage measurements at regular intervals
+\*AUC is computed from the binary predictions, so it equals balanced accuracy, not a ranking AUC.
 
-**What an anomaly represents:**
-- **Normal (Class 1)**: Regular heart rhythm patterns
-- **Anomalies (Classes 2-5)**: Different types of cardiac abnormalities:
-  - Class 2: Atrial fibrillation
-  - Class 3: Ventricular tachycardia
-  - Class 4: Supraventricular tachycardia
-  - Class 5: Premature ventricular contractions
+**What this shows**
 
-**Features:**
-- 140 time series features (voltage measurements)
-- Binary target: 0 (normal) or 1 (anomaly)
-- Balanced dataset with 11% anomaly rate for realistic analysis
+- The simple statistical rule matches the best model on F1. Fourier features catch the most
+  anomalies (recall 0.52) at the cost of more false alarms.
+- The detectors agree on 86 to 95% of recordings, so an ensemble would mostly add value on the
+  disagreements.
+- With an 11% anomaly rate and no labels in training, around half of the anomalies are still
+  missed by every model. For a medical use case the threshold would have to move towards recall.
 
-### Dataset Statistics
-- **Total samples:** 2,000
-- **Time series length:** 140 points
-- **Anomaly rate:** 11%
-- **Features:** 140 ECG signal measurements
-- **Classes:** 5 (1 normal + 4 anomaly types)
+![Model comparison](images/model_comparison.png)
 
-## Project Structure
+## Data
+
+- [ECG5000](https://www.timeseriesclassification.com/description.php?Dataset=ECG5000):
+  heartbeat recordings, 140 time steps each
+- A subset of **2,000 recordings** (`data/ECG5000_balanced.csv`): 1,780 normal (class 1) and
+  220 anomalous (classes 2 to 5), an 11% anomaly rate
+- Binary target for evaluation: 0 = normal, 1 = anomaly
+
+## Methods
+
+1. **Median Absolute Deviation (rule-based)**: a modified z-score (median and MAD, threshold 3.5)
+   per time step; a recording is flagged when more than 10% of its time steps are outliers.
+   Fast and interpretable.
+2. **Vector autoregression (VAR)**: every 10th time step (14 features) is standardised and
+   differenced, a VAR model is fitted on the first 80% of recordings, and the one-step forecast
+   error is used as the anomaly score (top 10% flagged). Note: VAR treats consecutive recordings
+   as a sequence, which is a weak assumption for independent heartbeats and explains why it is
+   the weakest of the three.
+3. **Fourier transform**: 9 spectral features per recording (total and mean power, spectral
+   entropy, mean frequency, spectral centroid and similar), standardised; the Mahalanobis distance
+   from the mean is the anomaly score and the top 15% are flagged.
+
+Each notebook includes an error analysis of false positives and false negatives.
+
+## Notebooks
+
 ```
-TSA/
-├── data/                          # Data files
-│   └── ECG5000_balanced.csv      # Balanced dataset with 11% anomaly rate (2,000 samples)
-├── notebooks/                     # Jupyter notebooks
-│   ├── 1_EDA.ipynb              # Exploratory Data Analysis
-│   ├── 2_RuleBased_Model.ipynb  # Mean Absolute Deviation (MAD)
-│   ├── 3_ML_Model1.ipynb        # Vector Autoregression (VAR)
-│   ├── 4_ML_Model2.ipynb        # Fourier Transform
-│   └── 5_Model_Comparison.ipynb # Comprehensive error analysis
-├── results/                      # Results and visualizations
-├── requirements.txt              # Python dependencies
-└── README.md                     # This file
+notebooks/
+├── 1_EDA.ipynb                 # exploratory analysis of the 2,000 recordings
+├── 2_RuleBased_Model.ipynb     # median absolute deviation
+├── 3_ML_Model1.ipynb           # VAR reconstruction error
+├── 4_ML_Model2.ipynb           # Fourier spectral features
+└── 5_Model_Comparison.ipynb    # side-by-side metrics, confusion matrices, agreement
 ```
 
-## Algorithms Implemented
+Run them in order; notebooks 2 to 4 save their predictions to `results/`, which notebook 5 loads.
 
-### 1. Rule-Based Method: Mean Absolute Deviation (MAD)
-- **Type**: Heuristic-based approach
-- **Approach**: Statistical threshold using median absolute deviation
-- **Strengths**: Robust to outliers, interpretable, fast
-- **Use Case**: Quick anomaly screening, explainable results
-
-### 2. Machine Learning Method 1: Vector Autoregression (VAR)
-- **Type**: Time series modeling
-- **Approach**: Reconstruction error-based detection
-- **Strengths**: Captures temporal dependencies, good for multivariate data
-- **Use Case**: Pattern-based monitoring, temporal anomaly detection
-
-### 3. Machine Learning Method 2: Fourier Transform
-- **Type**: Frequency domain analysis
-- **Approach**: Spectral analysis for anomaly detection
-- **Strengths**: Robust to noise, detects periodic anomalies
-- **Use Case**: Spectral analysis, periodic pattern detection
-
-## Key Features
-
-### Unsupervised Learning
-- **No labels used during training** - Simulates real-world conditions
-- **Labels only for evaluation** - Performance assessment and error analysis
-- **Three different approaches** - Comprehensive anomaly detection
-
-### Model Error Analysis
-- **False Positive Analysis**: Why normal data classified as anomalies
-- **False Negative Analysis**: Why anomalies missed by models
-- **Visual comparison**: Green (correct anomalies) vs Red (predicted anomalies)
-- **Feature importance**: Understanding detection patterns
-- **Temporal analysis**: When anomalies occur and why they're missed
-
-### Comprehensive Evaluation
-- Precision, Recall, F1-Score, AUC-ROC
-- Confusion matrix analysis
-- Model agreement/disagreement analysis
-- Feature-wise anomaly detection patterns
-
-## Setup Instructions
-
-### 1. Install Dependencies
 ```bash
 pip install -r requirements.txt
+jupyter notebook
 ```
 
-### 2. Run Analysis
-Execute notebooks in order:
-1. `1_EDA.ipynb` - Exploratory Data Analysis
-2. `2_RuleBased_Model.ipynb` - MAD-based anomaly detection
-3. `3_ML_Model1.ipynb` - VAR-based anomaly detection
-4. `4_ML_Model2.ipynb` - Fourier Transform-based detection
-5. `5_Model_Comparison.ipynb` - Comprehensive error analysis
+## Changelog
 
-## Expected Results
+- **Nov 2026**: fixed an alignment bug in the comparison notebook. The VAR model works on
+  differenced data, so its predictions start at recording 1; the comparison was matching them to
+  recording 0, which made VAR look random (F1 0.10). Aligned correctly, VAR scores F1 0.35, the
+  same as in its own notebook. Also corrected "mean" to "median" absolute deviation.
 
-After running all notebooks, you will have:
-- Performance metrics for all three models
-- Visualizations of anomaly detection results
-- Detailed error analysis with explanations
-- Insights into why different models detect different anomalies
-- Recommendations for real-world ECG monitoring applications
+## Limitations
 
-## References
-- [ECG5000 Dataset Paper](https://www.timeseriesclassification.com/description.php?Dataset=ECG5000)
-- [Anomaly Detection in Time Series](https://arxiv.org/abs/1901.03407)
-- [MAD-based Anomaly Detection](https://www.sciencedirect.com/science/article/pii/S0167865518300113)
-- [VAR Models for Time Series](https://www.jstor.org/stable/2286344)
-- [Fourier Transform for Anomaly Detection](https://ieeexplore.ieee.org/document/1234567)
-
-## Contact
-For questions or issues, please refer to the notebook documentation or contact the group members. 
+- One dataset subset and one random split; no cross-validation.
+- Thresholds are set by percentile, not tuned for a clinical recall target.
+- AUC is computed from hard predictions; a score-based ROC curve would be more informative.
